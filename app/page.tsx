@@ -44,9 +44,16 @@ export default function VirmuktoLift() {
   const reportStatus = (id: number, newStatus: any) => {
     const now = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
     
-    // ডাটাবেজের সঠিক পাথে ডাটা রাইট করা (এটিই পিসি-মোবাইল সিঙ্ক করবে)
-    set(ref(db, `lifts/${id - 1}/status`), newStatus);
-    set(ref(db, `lifts/${id - 1}/time`), now);
+    // lifts/${id-1} এর বদলে সরাসরি lifts/${id} ব্যবহার কর যেন পাথ নিয়ে ঝামেলা না হয়
+    set(ref(db, `lifts/${id}`), {
+      id: id,
+      label: `লিফট ০${id}`,
+      floor: "G", // এটা ডিফল্ট রেখে দিচ্ছি
+      status: newStatus,
+      trend: "idle",
+      updates: 0,
+      time: now
+    });
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold">সিঙ্ক হচ্ছে...</div>;
