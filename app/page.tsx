@@ -1,4 +1,5 @@
 "use client";
+import { db } from "./firebase";
 import { useState, useEffect } from "react";
 import { 
   ArrowUpCircle, ArrowDownCircle, Users, Zap, RefreshCcw, 
@@ -61,8 +62,8 @@ export default function VirmuktoLift() {
         {/* --- ক্যাম্পাস অ্যালার্ট কার্ড --- */}
         <div className="bg-slate-900 p-8 rounded-[40px] text-white shadow-2xl mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <p className="text-[10px] font-bold text-orange-400 uppercase tracking-[0.2em] mb-2">DIU মেইন বিল্ডিং</p>
-            <h2 className="text-2xl font-bold leading-tight mb-4">ক্লাস ধরার আগে <br/>জ্যাম দেখে নিন! 🚀</h2>
+            <p className="text-[10px] font-bold text-orange-400 uppercase tracking-[0.2em] mb-2">Daffodil AB4 বিল্ডিং</p>
+            <h2 className="text-2xl font-bold leading-tight mb-4">ক্লাস ধরার আগে লিফট এর <br/>জ্যাম দেখে নিন! 🚀</h2>
             <div className="flex items-center gap-2 bg-white/10 w-fit px-4 py-2 rounded-full border border-white/10">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
               <span className="text-[11px] font-bold uppercase tracking-widest">লাইভ ডাটা আপডেট হচ্ছে</span>
