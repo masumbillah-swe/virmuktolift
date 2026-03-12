@@ -135,7 +135,7 @@ export default function VirmuktoLift() {
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 rounded-[40px] text-white shadow-2xl mb-6 relative overflow-hidden border border-white/5">
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck size={14} className="text-orange-400" /><p className="text-[10px] font-bold text-orange-400 uppercase tracking-[0.2em]">Daffodil AB4 Verified</p>
+              <ShieldCheck size={14} className="text-orange-400" /><p className="text-[10px] font-bold text-orange-400 uppercase tracking-[0.2em]">Daffodil AB4 Building</p>
             </div>
             <h2 className="text-2xl font-bold leading-tight mb-4 text-white">ক্লাস ধরার আগে লিফট এর <br/>জ্যাম দেখে নিন! 🚀</h2>
             
