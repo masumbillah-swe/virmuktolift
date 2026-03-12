@@ -1,7 +1,7 @@
 "use client";
 import { db } from "./firebase";
 import { useState, useEffect } from "react";
-import { ref, onValue, set } from "firebase/database"; // ফিক্স: ইমপোর্ট যোগ করা হয়েছে
+import { ref, onValue, set } from "firebase/database"; // ফিক্সড ইমপোর্ট
 import { 
   ArrowUpCircle, ArrowDownCircle, Users, Zap, RefreshCcw, 
   MapPin, Clock, Info, ChevronRight, AlertTriangle 
@@ -20,43 +20,46 @@ interface Lift {
 
 export default function VirmuktoLift() {
   const [lifts, setLifts] = useState<Lift[]>([]);
-  const [loading, setLoading] = useState(true); // ফিক্স: লোডিং স্টেট
+  const [loading, setLoading] = useState(true);
 
-  // ফিক্স: ডাটাবেজ থেকে রিয়েল-টাইম ডাটা রিড করা
+  // ডাটাবেজ থেকে রিয়েল-টাইম ডাটা রিড করা
   useEffect(() => {
     const liftsRef = ref(db, 'lifts');
     onValue(liftsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setLifts(Object.values(data));
+        // ফায়ারবেস অবজেক্টকে অ্যারেতে রূপান্তর
+        const liftArray = Object.values(data) as Lift[];
+        setLifts(liftArray);
       } else {
-        // প্রথমবার ডাটাবেজ খালি থাকলে ইনিশিয়ালাইজ করা
-        const initial = [1,2,3,4,5,6].map(id => ({
-          id, label: `লিফট ০${id}`, floor: "G", status: "ফাঁকা", trend: "idle", updates: 0, time: "এখন"
-        }));
-        set(ref(db, 'lifts'), initial);
+        // প্রথমবার ডাটাবেজ খালি থাকলে ডাটা সেট করা
+        const initialData = [
+          { id: 1, label: "লিফট ০১", floor: "G", status: "ফাঁকা", trend: "idle", updates: 12, time: "এখন" },
+          { id: 2, label: "লিফট ০২", floor: "৪", status: "ভিড়", trend: "up", updates: 45, time: "এখন" },
+          { id: 3, label: "লিফট ০৩", floor: "৯", status: "জ্যাম", trend: "down", updates: 89, time: "এখন" },
+          { id: 4, label: "লিফট ০৪", floor: "G", status: "ফাঁকা", trend: "idle", updates: 5, time: "এখন" },
+          { id: 5, label: "লিফট ০৫", floor: "৬", status: "ভিড়", trend: "up", updates: 23, time: "এখন" },
+          { id: 6, label: "লিফট ০৬", floor: "G", status: "জ্যাম", trend: "idle", updates: 120, time: "এখন" },
+        ];
+        set(ref(db, 'lifts'), initialData);
       }
       setLoading(false);
     });
   }, []);
 
-  // ফিক্স: ডাটাবেজে স্ট্যাটাস আপডেট পাঠানো
   const reportStatus = (id: number, newStatus: any) => {
     const now = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
     
-    // lifts/${id-1} এর বদলে সরাসরি lifts/${id} ব্যবহার কর যেন পাথ নিয়ে ঝামেলা না হয়
-    set(ref(db, `lifts/${id}`), {
-      id: id,
-      label: `লিফট ০${id}`,
-      floor: "G", // এটা ডিফল্ট রেখে দিচ্ছি
-      status: newStatus,
-      trend: "idle",
-      updates: 0,
-      time: now
-    });
+    // ডাটাবেজে আপডেট পাঠানো (এটিই মোবাইল-পিসি সিঙ্ক করবে)
+    set(ref(db, `lifts/${id - 1}/status`), newStatus);
+    set(ref(db, `lifts/${id - 1}/time`), now);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold">সিঙ্ক হচ্ছে...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center font-bold text-slate-500 italic">
+      ডিআইইউ লিফট সিঙ্ক হচ্ছে...
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-[#F4F7FE] text-slate-900 pb-20">
@@ -72,7 +75,7 @@ export default function VirmuktoLift() {
             </div>
             <h1 className="text-xl font-bold tracking-tight">ভিড়মুক্ত<span className="text-orange-600">লিফট</span></h1>
           </div>
-          <button className="p-2 bg-slate-100 rounded-full text-slate-500 hover:rotate-180 transition-all duration-500">
+          <button className="p-2 bg-slate-100 rounded-full text-slate-500">
             <RefreshCcw size={18} />
           </button>
         </div>
