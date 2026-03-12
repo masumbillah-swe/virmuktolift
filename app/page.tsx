@@ -134,7 +134,7 @@ export default function VirmuktoLift() {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-2">Daffodil International University</p>
             <p className="text-sm font-bold text-slate-900 uppercase tracking-tighter">ডেভেলপার: <span className="text-orange-600 italic">মাসুম বিল্লাহ</span></p>
             <div className="mt-4 flex justify-center gap-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                <span>Software Engineering</span><span className="text-slate-200">|</span><span>Batch 34</span>
+                <span>Software Engineering</span><span className="text-slate-200">|</span><span>Batch 43</span>
             </div>
         </footer>
       </div>
