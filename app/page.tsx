@@ -22,6 +22,7 @@ export default function VirmuktoLift() {
   const [lifts, setLifts] = useState<Lift[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSpamming, setIsSpamming] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const liftsRef = ref(db, 'lifts');
@@ -53,6 +54,12 @@ export default function VirmuktoLift() {
     if (currentLift) {
       set(ref(db, liftPath), { ...currentLift, ...updates, time: now, timestamp: Date.now() });
     }
+  };
+
+  const handleUpdate = (id: number, updates: any) => {
+    updateLiftData(id, updates);
+    setUpdateSuccess(`${id}`);
+    setTimeout(() => setUpdateSuccess(null), 2000);
   };
 
   // --- স্মার্ট হাইপ লজিক ---
@@ -113,8 +120,8 @@ export default function VirmuktoLift() {
             <div className="h-full bg-gradient-to-r from-green-500 via-orange-500 to-red-500 transition-all duration-1000" style={{ width: `${congestionLevel}%` }}></div>
           </div>
           <p className="text-[11px] font-bold text-slate-500 italic leading-none">
-            {congestionLevel > 70 ? "🔥 ক্যাম্পাস এখন জ্যামে পুড়ছে! সিঁড়িই একমাত্র ভরসা।" : 
-             congestionLevel > 30 ? "⚡ লিফট মোটামুটি ক্লিয়ার। সাবধানে যান।" : "✅ লিফট একদম ফাঁকা! দৌড় দিন।" }
+            {congestionLevel > 70 ? "🔥 ক্যাম্পাস এখন জ্যামে পুড়ছে! সিঁড়িই একমাত্র ভরসা।" : 
+             congestionLevel > 30 ? "⚡ লিফট মোটামুটি ক্লিয়ার। সাবধানে যান।" : "✅ লিফট একদম ফাঁকা! দৌড় দিন।" }
           </p>
         </div>
 
@@ -124,8 +131,8 @@ export default function VirmuktoLift() {
         }`}>
           <div className="flex items-center justify-between text-white">
             <div>
-              <h2 className="text-2xl font-black italic mb-1 leading-tight tracking-tight">{takeStairs ? "সিঁড়ি দিয়ে যান! 🏃‍♂️" : `${bestLift ? bestLift.label : "চেক করুন"} এ যান! 🚀`}</h2>
-              <p className="text-[11px] opacity-80 font-bold uppercase tracking-widest leading-none">{takeStairs ? "সব লিফটে জ্যাম। সিঁড়িই এখন সেরা।" : "এই লিফটে লাইন কম। সময় বাঁচবে।"}</p>
+              <h2 className="text-2xl font-black italic mb-1 leading-tight tracking-tight">{takeStairs ? "সিঁড়ি দিয়ে যান! 🏃‍♂️" : `${bestLift ? bestLift.label : "চেক করুন"} এ যান! 🚀`}</h2>
+              <p className="text-[11px] opacity-80 font-bold uppercase tracking-widest leading-none">{takeStairs ? "সব লিফটে জ্যাম। সিঁড়িই এখন সেরা।" : "এই লিফটে লাইন কম। সময় বাঁচবে।"}</p>
             </div>
             {takeStairs ? <AlertCircle size={40} className="opacity-30" /> : <Navigation size={40} className="opacity-30" />}
           </div>
@@ -203,19 +210,74 @@ export default function VirmuktoLift() {
                 </div>
               </div>
 
-              <div className="mb-4 text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase leading-none">লাইভ অবস্থা আপডেট করুন</p>
-              </div>
+              {/* --- স্মার্ট আপডেট সেকশন --- */}
+              <div className="bg-slate-50/50 rounded-3xl p-5 border border-slate-100 mt-6 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Zap size={16} className="text-orange-500" />
+                    <h4 className="text-[12px] font-black text-slate-800 uppercase tracking-tight">আপনার আপডেট দিন</h4>
+                  </div>
+                  
+                  {/* সাকসেস ব্যাজ (ক্লিক করার পর দেখাবে) */}
+                  {updateSuccess === `${lift.id}` && (
+                    <span className="text-[10px] font-bold text-white bg-green-500 px-3 py-1 rounded-full animate-bounce flex items-center gap-1 shadow-md">
+                      <CheckCircle2 size={12} /> আপডেটেড!
+                    </span>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <button onClick={() => updateLiftData(lift.id, { status: "কম লাইন" })} className="py-4 rounded-2xl bg-slate-50 text-[10px] font-black hover:bg-green-600 hover:text-white transition-all border border-slate-50 shadow-xs">কম লাইন</button>
-                <button onClick={() => updateLiftData(lift.id, { status: "মাঝারি লাইন" })} className="py-4 rounded-2xl bg-slate-50 text-[10px] font-black hover:bg-orange-500 hover:text-white transition-all border border-slate-50 shadow-xs">মাঝারি</button>
-                <button onClick={() => updateLiftData(lift.id, { status: "বিশাল জ্যাম" })} className="py-4 rounded-2xl bg-slate-50 text-[10px] font-black hover:bg-red-600 hover:text-white transition-all border border-slate-50 tracking-tighter shadow-xs">বিশাল জ্যাম</button>
-              </div>
+                <p className="text-[10px] font-bold text-slate-500 mb-3 leading-none">লিফটের বর্তমান ভিড় কেমন?</p>
+                <div className="grid grid-cols-3 gap-2 mb-5">
+                  <button 
+                    onClick={() => handleUpdate(lift.id, { status: "কম লাইন" })} 
+                    className={`py-3 px-1 rounded-2xl text-[11px] font-black transition-all border flex flex-col items-center gap-1 shadow-sm active:scale-95
+                      ${lift.status === 'কম লাইন' 
+                        ? 'bg-green-500 text-white border-green-600 ring-2 ring-green-200 ring-offset-1' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-green-400'}`}
+                  >
+                    <span className="text-sm">✅</span> কম
+                  </button>
+                  <button 
+                    onClick={() => handleUpdate(lift.id, { status: "মাঝারি লাইন" })} 
+                    className={`py-3 px-1 rounded-2xl text-[11px] font-black transition-all border flex flex-col items-center gap-1 shadow-sm active:scale-95
+                      ${lift.status === 'মাঝারি লাইন' 
+                        ? 'bg-orange-500 text-white border-orange-600 ring-2 ring-orange-200 ring-offset-1' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-orange-400'}`}
+                  >
+                    <span className="text-sm">⚠️</span> মাঝারি
+                  </button>
+                  <button 
+                    onClick={() => handleUpdate(lift.id, { status: "বিশাল জ্যাম" })} 
+                    className={`py-3 px-1 rounded-2xl text-[11px] font-black transition-all border flex flex-col items-center gap-1 shadow-sm active:scale-95
+                      ${lift.status === 'বিশাল জ্যাম' 
+                        ? 'bg-red-500 text-white border-red-600 ring-2 ring-red-200 ring-offset-1' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-red-400'}`}
+                  >
+                    <span className="text-sm">🔥</span> জ্যাম
+                  </button>
+                </div>
 
-              <div className="flex gap-2">
-                <button onClick={() => updateLiftData(lift.id, { trend: "up" })} className="flex-1 py-4 flex items-center justify-center gap-2 rounded-2xl bg-slate-900 text-white text-[10px] font-black hover:bg-orange-600 transition-all shadow-lg active:scale-95 uppercase leading-none">উপরে যাচ্ছে</button>
-                <button onClick={() => updateLiftData(lift.id, { trend: "down" })} className="flex-1 py-4 flex items-center justify-center gap-2 rounded-2xl bg-slate-900 text-white text-[10px] font-black hover:bg-orange-600 transition-all shadow-lg active:scale-95 uppercase leading-none">নিচে নামছে</button>
+                <p className="text-[10px] font-bold text-slate-500 mb-3 leading-none">লিফট কোন দিকে যাচ্ছে?</p>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleUpdate(lift.id, { trend: "up" })} 
+                    className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-2xl text-[11px] font-black transition-all shadow-sm border active:scale-95 uppercase
+                      ${lift.trend === 'up' 
+                        ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-slate-300 ring-offset-1' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                  >
+                    <ArrowUpCircle size={16} className={lift.trend === 'up' ? 'text-green-400' : 'text-slate-400'} /> উপরে
+                  </button>
+                  <button 
+                    onClick={() => handleUpdate(lift.id, { trend: "down" })} 
+                    className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-2xl text-[11px] font-black transition-all shadow-sm border active:scale-95 uppercase
+                      ${lift.trend === 'down' 
+                        ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-slate-300 ring-offset-1' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                  >
+                    <ArrowDownCircle size={16} className={lift.trend === 'down' ? 'text-red-400' : 'text-slate-400'} /> নিচে
+                  </button>
+                </div>
               </div>
             </div>
           ))}
