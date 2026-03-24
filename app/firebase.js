@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getAuth } from "firebase/auth"; // নতুন অ্যাড করা হলো
 
 const firebaseConfig = {
   apiKey: "AIzaSyDpoBslMAvPsIMFjjbg69Y0yA-UmNaiB-M",
@@ -13,3 +14,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app); // নিশ্চিত কর এই লাইনটা আছে
+export const auth = getAuth(app); // নতুন অ্যাড করা হলো
