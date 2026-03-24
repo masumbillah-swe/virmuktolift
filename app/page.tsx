@@ -2,11 +2,17 @@
 import { auth, db } from "./firebase";
 import { useState, useEffect, useRef } from "react";
 import { ref, onValue, set, update, increment } from "firebase/database";
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut,
+  updateProfile
+} from "firebase/auth";
 import { 
   ArrowUpCircle, ArrowDownCircle, Zap, MapPin, Clock, ShieldCheck, 
   Sparkles, Navigation, AlertCircle, CheckCircle2, MessageSquare, 
-  Activity, Flame, TrendingUp, LogIn, LogOut, Trophy, User, Crown, X
+  Activity, Flame, TrendingUp, LogIn, LogOut, Trophy, User, Crown, X, Mail, Lock, UserCircle
 } from "lucide-react";
 
 interface Lift {
@@ -17,7 +23,7 @@ interface Lift {
   trend: "up" | "down" | "idle";
   time: string;
   timestamp: number;
-  votes?: any; // মেজরিটি ভোটিংয়ের জন্য নতুন ফিল্ড
+  votes?: any; 
 }
 
 export default function VirmuktoLift() {
@@ -30,6 +36,16 @@ export default function VirmuktoLift() {
   const [user, setUser] = useState<any>(null);
   const [userPoints, setUserPoints] = useState<number>(0);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Auth Modal State
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authName, setAuthName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+
+  // Profile Modal State
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Top Contributors State
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -51,7 +67,7 @@ export default function VirmuktoLift() {
             setUserPoints(snapshot.val().points || 0);
           } else {
             // New user, initial points
-            set(userRef, { name: currentUser.displayName, email: currentUser.email, points: 0 });
+            set(userRef, { name: currentUser.displayName || 'DIU Student', email: currentUser.email, points: 0 });
             setUserPoints(0);
           }
         });
@@ -68,7 +84,6 @@ export default function VirmuktoLift() {
       const data = snapshot.val();
       if (data) {
         const usersArray = Object.values(data);
-        // Sort by points (highest first) and take top 5
         const sortedUsers = usersArray
           .sort((a: any, b: any) => (b.points || 0) - (a.points || 0))
           .slice(0, 5);
@@ -77,23 +92,59 @@ export default function VirmuktoLift() {
     });
   }, []);
 
-  // Login Function
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    // DIU Domain Restriction
-    provider.setCustomParameters({ hd: "diu.edu.bd" }); 
+  // Email/Password Auth Handler
+  const handleAuthSubmit = async (e: any) => {
+    e.preventDefault();
     
+    // Domain Validation
+    if (!authEmail.endsWith("@diu.edu.bd")) {
+      setSpamMsg("শুধুমাত্র ড্যাফোডিল ইমেইল (@diu.edu.bd) ব্যবহার করুন।");
+      setTimeout(() => setSpamMsg(""), 4000);
+      return;
+    }
+
     try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed:", error);
-      setSpamMsg("লগইন করা যায়নি। ড্যাফোডিল ইমেইল ব্যবহার করুন।");
+      if (isSignUp) {
+        if (!authName.trim()) {
+          setSpamMsg("দয়া করে আপনার নাম দিন।");
+          setTimeout(() => setSpamMsg(""), 3000);
+          return;
+        }
+        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        await updateProfile(userCredential.user, { displayName: authName });
+        // Save initial user data
+        await set(ref(db, `users/${userCredential.user.uid}`), { 
+          name: authName, 
+          email: authEmail, 
+          points: 0 
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+      }
+      
+      // Reset & Close
+      setShowAuthModal(false);
+      setAuthName("");
+      setAuthEmail("");
+      setAuthPassword("");
+    } catch (error: any) {
+      console.error("Auth failed:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        setSpamMsg("এই ইমেইল দিয়ে আগে অ্যাকাউন্ট খোলা হয়েছে।");
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        setSpamMsg("ইমেইল বা পাসওয়ার্ড ভুল হয়েছে।");
+      } else if (error.code === 'auth/weak-password') {
+        setSpamMsg("পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে।");
+      } else {
+        setSpamMsg("লগইন করা যায়নি। আবার চেষ্টা করুন।");
+      }
       setTimeout(() => setSpamMsg(""), 4000);
     }
   };
 
   const handleLogout = () => {
     signOut(auth);
+    setShowProfileModal(false);
   };
 
   // 🧠 MAJORITY VOTE ALGORITHM INCLUDED HERE
@@ -104,7 +155,6 @@ export default function VirmuktoLift() {
       if (data) {
         const liftData = Object.values(data) as any[];
         
-        // মেজরিটি ভোট প্রসেস করা হচ্ছে
         const processedLifts = liftData.map((lift: any) => {
           let currentStatus = lift.status;
           let currentFloor = lift.floor;
@@ -112,7 +162,6 @@ export default function VirmuktoLift() {
 
           if (lift.votes) {
             const now = Date.now();
-            // লাস্ট ৫ মিনিটের ভোটগুলো ফিল্টার করা
             const recentVotes = Object.values(lift.votes).filter((v: any) => now - v.timestamp < 300000);
 
             if (recentVotes.length > 0) {
@@ -126,7 +175,6 @@ export default function VirmuktoLift() {
                 if (v.trend) trendCounts[v.trend] = (trendCounts[v.trend] || 0) + 1;
               });
 
-              // সবচেয়ে বেশি ভোট পাওয়া অপশনটি খুঁজে বের করার ফাংশন
               const getMajority = (counts: Record<string, number>) => {
                 let max = 0;
                 let majorityKey = null;
@@ -169,17 +217,15 @@ export default function VirmuktoLift() {
     });
   }, []);
 
-  // 🧠 SECURE VOTE UPDATER (Instead of direct overriding)
+  // 🧠 SECURE VOTE UPDATER 
   const updateLiftData = (id: number, updates: any, uid: string) => {
     const now = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
     const liftPath = `lifts/${id - 1}`;
     const currentLift = lifts.find(l => l.id === id);
     
-    // ইউজারের আগের কোনো ভোট থাকলে তার সাথে নতুন ভোট মার্জ করা
     const existingVote = currentLift?.votes?.[uid] || {};
     const newVote = { ...existingVote, ...updates, timestamp: Date.now() };
 
-    // ফায়ারবেসে ভোট সেভ করা এবং গ্লোবাল টাইম আপডেট করা
     update(ref(db, liftPath), {
       [`votes/${uid}`]: newVote,
       time: now,
@@ -189,12 +235,10 @@ export default function VirmuktoLift() {
 
   const handleUpdate = (id: number, updates: any) => {
     if (!user) {
-      setSpamMsg("আপডেট দিতে আগে লগইন করুন!");
-      setTimeout(() => setSpamMsg(""), 3000);
+      setShowAuthModal(true);
       return;
     }
 
-    // Anti-Spam Logic: ১ মিনিটে সর্বোচ্চ ৫ বার আপডেট দেওয়া যাবে
     const nowTime = Date.now();
     updateHistory.current = updateHistory.current.filter(time => nowTime - time < 60000);
     
@@ -205,10 +249,8 @@ export default function VirmuktoLift() {
     }
     updateHistory.current.push(nowTime);
 
-    // Update lift data with UID
     updateLiftData(id, updates, user.uid);
 
-    // Gamification: Add +10 points to user profile
     const userRef = ref(db, `users/${user.uid}`);
     update(userRef, { points: increment(10) });
 
@@ -220,12 +262,10 @@ export default function VirmuktoLift() {
   const busyCount = lifts.filter(l => l.status === "বিশাল জ্যাম").length;
   const congestionLevel = lifts.length > 0 ? Math.round((busyCount / lifts.length) * 100) : 0;
   
-  // Smart Routing
   const validLifts = lifts.filter(l => (Date.now() - l.timestamp) < 300000);
   const bestLift = validLifts.find(l => l.status === "কম লাইন") || lifts.find(l => l.status === "কম লাইন");
   const takeStairs = busyCount >= 4;
 
-  // Dynamic Greeting based on Time
   const currentHour = new Date().getHours();
   const greeting = currentHour >= 8 && currentHour <= 11 
     ? "সকালের ক্লাসের তাড়া? লিফট চেক করে নিন! 🚀" 
@@ -253,6 +293,85 @@ export default function VirmuktoLift() {
           background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; 
         }
       `}</style>
+
+      {/* --- AUTH MODAL (Login/Signup) --- */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[35px] w-full max-w-sm p-7 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button onClick={() => setShowAuthModal(false)} className="absolute top-5 right-5 bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200 transition-all">
+              <X size={20} />
+            </button>
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <ShieldCheck size={28} />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800 leading-none mb-1">
+                {isSignUp ? "অ্যাকাউন্ট খুলুন" : "লগইন করুন"}
+              </h2>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                শুধুমাত্র DIU স্টুডেন্টদের জন্য
+              </p>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              {isSignUp && (
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-3">
+                  <User size={18} className="text-slate-400" />
+                  <input type="text" required placeholder="আপনার নাম" value={authName} onChange={(e) => setAuthName(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 focus:outline-none" />
+                </div>
+              )}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-3">
+                <Mail size={18} className="text-slate-400" />
+                <input type="email" required placeholder="DIU ইমেইল (@diu.edu.bd)" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 focus:outline-none" />
+              </div>
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-3">
+                <Lock size={18} className="text-slate-400" />
+                <input type="password" required placeholder="পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 focus:outline-none" />
+              </div>
+              
+              <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl text-sm font-black uppercase tracking-wider hover:bg-orange-500 transition-all shadow-lg active:scale-95">
+                {isSignUp ? "অ্যাকাউন্ট তৈরি করুন" : "লগইন করুন"}
+              </button>
+            </form>
+
+            <div className="mt-5 text-center">
+              <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-[12px] font-bold text-slate-500 hover:text-orange-500 transition-colors">
+                {isSignUp ? "আগে অ্যাকাউন্ট থাকলে লগইন করুন" : "নতুন হলে অ্যাকাউন্ট তৈরি করুন"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- USER PROFILE MODAL --- */}
+      {showProfileModal && user && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[105] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[35px] w-full max-w-sm p-7 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button onClick={() => setShowProfileModal(false)} className="absolute top-5 right-5 bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200 transition-all">
+              <X size={20} />
+            </button>
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-md">
+                <UserCircle size={48} />
+              </div>
+              <h2 className="text-xl font-black text-slate-800 leading-tight mb-1">{user.displayName || "DIU Student"}</h2>
+              <p className="text-xs font-bold text-slate-400">{user.email}</p>
+            </div>
+
+            <div className="bg-orange-50 rounded-3xl p-5 border border-orange-100 text-center mb-6">
+              <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">মোট কন্ট্রিবিউশন পয়েন্ট</p>
+              <div className="flex justify-center items-center gap-2">
+                <Trophy size={24} className="text-orange-500" />
+                <span className="text-3xl font-black text-orange-600">{userPoints}</span>
+              </div>
+            </div>
+
+            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 py-3.5 rounded-2xl text-sm font-black hover:bg-red-500 hover:text-white transition-all border border-red-100">
+              <LogOut size={18} /> লগআউট করুন
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Top Contributors Modal */}
       {showLeaderboard && (
@@ -313,17 +432,17 @@ export default function VirmuktoLift() {
           
           <div className="flex items-center gap-3">
             {user ? (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-200">
-                  <Trophy size={14} className="text-orange-600" />
-                  <span className="text-[12px] font-black text-orange-700 leading-none pt-0.5">{userPoints}</span>
+              <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-2 bg-slate-50 pl-1.5 pr-4 py-1.5 rounded-full border border-slate-200 hover:bg-slate-100 transition-all active:scale-95">
+                <div className="w-7 h-7 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center">
+                  <User size={14} />
                 </div>
-                <button onClick={handleLogout} className="bg-slate-100 p-1.5 rounded-full border border-slate-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all">
-                  <LogOut size={16} />
-                </button>
-              </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black leading-none text-slate-800">{user.displayName?.split(' ')[0] || "Profile"}</p>
+                  <p className="text-[8px] font-bold text-orange-500 uppercase tracking-widest mt-0.5">{userPoints} pts</p>
+                </div>
+              </button>
             ) : (
-              <button onClick={handleLogin} className="flex items-center gap-1.5 bg-slate-900 text-white px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md active:scale-95">
+              <button onClick={() => setShowAuthModal(true)} className="flex items-center gap-1.5 bg-slate-900 text-white px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md active:scale-95">
                 <LogIn size={14} /> Login
               </button>
             )}
@@ -461,8 +580,8 @@ export default function VirmuktoLift() {
                       <div className="bg-white p-3 rounded-2xl shadow-lg border border-slate-100 text-center">
                         <User size={24} className="mx-auto text-orange-500 mb-2" />
                         <p className="text-[11px] font-black text-slate-700 leading-tight mb-2 uppercase">আপডেট দিতে লগইন করুন</p>
-                        <button onClick={handleLogin} className="bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-all active:scale-95 shadow-md">
-                          Google Login
+                        <button onClick={() => setShowAuthModal(true)} className="bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-all active:scale-95 shadow-md mt-1">
+                          Login / Sign Up
                         </button>
                       </div>
                     </div>
